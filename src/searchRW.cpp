@@ -137,7 +137,8 @@ void digDownDeeper(Value* val, int pointerLayer, bool isRead){
 		if(!(std::find(visitedBb.begin(), visitedBb.end(), curBb) != visitedBb.end())){
 			visitedBb.push_back(curBb);
 			firstOp = curBb->begin();
-			curOp = &(curBb->back());
+			//curOp = (curBb->end());
+			curOp = BasicBlock::iterator(&(curBb->back()));
 			digDownDeeper(val, pointerLayer, isRead);
 			// rollback curOp, firstOp, curBb on return
 			curOp = curOp_local;
@@ -228,16 +229,16 @@ void digDownRead(Value* val, int pointerLayer){
 			//if search mode, just mark it as read.
 			std::string varName = val2->getName().str();
 			//isR[varName.c_str()] = 1; //value being read
-			if (readPerInst.find(curOpSaved) == readPerInst.end()) { //if this is the first time for this instruction
+			if (readPerInst.find(dyn_cast<Instruction>(curOpSaved)) == readPerInst.end()) { //if this is the first time for this instruction
 				std::vector<std::string> readVars;
 				readVars.push_back(varName.c_str());
-				readPerInst[curOpSaved] = readVars;
+				readPerInst[dyn_cast<Instruction>(curOpSaved)] = readVars;
 			}
 			else { //if there is already a vector, append
-				std::vector<std::string> readVars = readPerInst[curOpSaved];
+				std::vector<std::string> readVars = readPerInst[dyn_cast<Instruction>(curOpSaved)];
 				if (std::find(readVars.begin(), readVars.end(), varName.c_str()) == readVars.end()) {
 					readVars.push_back(varName.c_str());
-					readPerInst[curOpSaved] = readVars;
+					readPerInst[dyn_cast<Instruction>(curOpSaved)] = readVars;
 				}
 			}
 		}
@@ -350,16 +351,16 @@ void digDownWrite(Value* val, int pointerLayer){
 		else {
 			// on search mode, if it is being read before, it is WAR
 			std::string varName = val2->getName().str();
-			if (writePerInst.find(curOpSaved) == writePerInst.end()) { //if this is the first time for this instruction
+			if (writePerInst.find(dyn_cast<Instruction>(curOpSaved)) == writePerInst.end()) { //if this is the first time for this instruction
 				std::vector<std::string> writeVars;
 				writeVars.push_back(varName.c_str());
-				writePerInst[curOpSaved] = writeVars;
+				writePerInst[dyn_cast<Instruction>(curOpSaved)] = writeVars;
 			}
 			else { //if there is already a vector, append
-				std::vector<std::string> writeVars = writePerInst[curOpSaved];
+				std::vector<std::string> writeVars = writePerInst[dyn_cast<Instruction>(curOpSaved)];
 				if (std::find(writeVars.begin(), writeVars.end(), varName.c_str()) == writeVars.end()) {
 					writeVars.push_back(varName.c_str());
-					writePerInst[curOpSaved] = writeVars;
+					writePerInst[dyn_cast<Instruction>(curOpSaved)] = writeVars;
 				}
 			}
 			/*
@@ -454,7 +455,7 @@ void checkRWInFunc(Function& F){
 				checkRW(op);
 			}
 			instruction = BasicBlock::iterator(insertPointForWrite);
-			curInst = instruction;
+			curInst = insertPointForWrite;
 			if(curInst == NULL){
 				if (isBlockSplitted){
 					block = Function::iterator(curBb);
@@ -553,8 +554,8 @@ void searchBackwards(Instruction* I, std::string writeVal) {
 
 	// only for those whose not proven to be WAR
 	if (valPointer.find(writeVal) == valPointer.end()) {
-		Instruction* startInst = I->getParent()->begin();
-		BasicBlock::iterator iter = I;
+		Instruction* startInst = dyn_cast<Instruction>(I->getParent()->begin());
+		BasicBlock::iterator iter = BasicBlock::iterator(I);
 		while(startInst != iter){
 			--iter;
 			Instruction* I2 = dyn_cast<Instruction>(iter);

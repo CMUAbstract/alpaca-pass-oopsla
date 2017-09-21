@@ -201,7 +201,7 @@ namespace {
 									for (auto &I : B){
 										if (auto *op = dyn_cast<Instruction>(&I)){
 											if (!first){ //at first instruction, insert privatization
-												curOp = op;
+												curOp = BasicBlock::iterator(op);
 												declare_dbuf(&B, F); //first only declare _baks if not declared
 												first = 1;
 											}
@@ -269,7 +269,7 @@ namespace {
 									for (auto &I : B){
 										if (auto *op = dyn_cast<Instruction>(&I)){
 											if (!first){ //at first instruction, insert privatization
-												curOp = op;
+												curOp = BasicBlock::iterator(op);
 												declare_dbuf(&B, F); //first only declare _baks if not declared
 												first = 1;
 											}

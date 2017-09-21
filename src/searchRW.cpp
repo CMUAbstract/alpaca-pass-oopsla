@@ -105,16 +105,13 @@ void digDownDeeper(Value* val, int pointerLayer, bool isRead){
 	BasicBlock::iterator firstOp_local = firstOp;
 	BasicBlock* curBb_local = curBb;
 
-//	errs() << "curBb: " << *curBb << "\n";
 	// reverse iterate over instruction
 	while(firstOp != i){
-//		errs() << "firstOp: " << *firstOp << "\n";
 		--i;
-//		errs() << "curOp: " << *i << "\n";
 		Instruction* I = dyn_cast<Instruction>(i);
 		// find store inst that potentially sets the pointer
 		if(isa<StoreInst>(I) && I->getOperand(1) == val){
-			curOp = I;
+			curOp = BasicBlock::iterator(I);
 			// check if the value that the pointer is pointing is _global_
 			if(isRead){
 				insertPoint = I;
@@ -246,19 +243,19 @@ void digDownRead(Value* val, int pointerLayer){
 		}
 	}
 	else if(isa<GetElementPtrInst>(val)){ // GEP can assign pointer
-		curOp = dyn_cast<Instruction>(val);
+		curOp = BasicBlock::iterator(dyn_cast<Instruction>(val));
 		auto* op2 = dyn_cast<GEPOperator>(val);
 		insertPoint = dyn_cast<Instruction>(op2);
 		digDownRead(op2->getPointerOperand(), pointerLayer);
 	}
 	else if(isa<BitCastInst>(val)){ // this maybe? can assign pointer
-		curOp = dyn_cast<Instruction>(val);
+		curOp = BasicBlock::iterator(dyn_cast<Instruction>(val));
 		auto* op2 = dyn_cast<BitCastOperator>(val);
 		insertPoint = dyn_cast<Instruction>(op2);
 		digDownRead(op2->getOperand(0), pointerLayer);
 	}
 	else if(isa<LoadInst>(val)){ // this can only send values
-		curOp = dyn_cast<Instruction>(val);
+		curOp = BasicBlock::iterator(dyn_cast<Instruction>(val));
 		auto* op2 = dyn_cast<LoadInst>(val);
 		insertPoint = op2;
 		digDownRead(op2->getOperand(0), pointerLayer);
@@ -376,19 +373,19 @@ void digDownWrite(Value* val, int pointerLayer){
 		}
 	}
 	else if(isa<GetElementPtrInst>(val)){ // GEP can assign pointer
-		curOp = dyn_cast<Instruction>(val);
+		curOp = BasicBlock::iterator(dyn_cast<Instruction>(val));
 		auto* op2 = dyn_cast<GEPOperator>(val);
 		replacePoint = dyn_cast<Instruction>(op2);
 		digDownWrite(op2->getPointerOperand(), pointerLayer);
 	}
 	else if(isa<LoadInst>(val)){ // this can only send values
-		curOp = dyn_cast<Instruction>(val);
+		curOp = BasicBlock::iterator(dyn_cast<Instruction>(val));
 		auto* op2 = dyn_cast<LoadInst>(val);
 		replacePoint = dyn_cast<Instruction>(op2);
 		digDownWrite(op2->getOperand(0), pointerLayer);
 	}
 	else if(isa<BitCastInst>(val)){ // this maybe? can assign pointer
-		curOp = dyn_cast<Instruction>(val);
+		curOp = BasicBlock::iterator(dyn_cast<Instruction>(val));
 		auto* op2 = dyn_cast<BitCastOperator>(val);
 		replacePoint = dyn_cast<Instruction>(op2);
 		digDownWrite(op2->getOperand(0), pointerLayer);
@@ -423,9 +420,9 @@ void checkRWInFunc(Function& F){
 			firstB = 1;
 		}
 		first = 0;
-		curBbSaved = block;
+		curBbSaved = dyn_cast<BasicBlock>(block);
 		if(isBlockSplitted && insertPointForWrite != NULL){
-			begin = insertPointForWrite;
+			begin = BasicBlock::iterator(insertPointForWrite);
 		}
 		else{
 			begin = block->begin();
@@ -434,21 +431,21 @@ void checkRWInFunc(Function& F){
 		for (BasicBlock::iterator instruction = begin, endblock = block->end(); instruction != endblock;){
 			if(!first){
 				first = 1;
-				firstOpInBlock = *instruction;
+				firstOpInBlock = BasicBlock::iterator(*instruction);
 			}
 			curBb = curBbSaved;
-			curOp = *instruction;
+			curOp = BasicBlock::iterator(*instruction);
 			//firstOp = firstOpInBlock;
 			firstOp = curBb->begin();
-			curOpSaved = *instruction;
+			curOpSaved = BasicBlock::iterator(*instruction);
 			//firstOpSaved = firstOpInBlock;
 			firstOpSaved = firstOp;
 			visitedBb.clear();
 			BasicBlock::iterator temp = instruction;
-			Instruction* curInst = instruction;
+			Instruction* curInst = dyn_cast<Instruction>(instruction);
 			if(curInst != (curBbSaved->getTerminator())){
 				++temp;
-				insertPointForWrite = temp;
+				insertPointForWrite = dyn_cast<Instruction>(temp);
 			}
 			else {
 				insertPointForWrite = NULL; //on digDownWrite, we don't need to consider NULL case because always task ends with transition_to. Write op never ends the task
@@ -456,11 +453,11 @@ void checkRWInFunc(Function& F){
 			if (auto *op = dyn_cast<Instruction>(instruction)){
 				checkRW(op);
 			}
-			instruction = insertPointForWrite;
+			instruction = BasicBlock::iterator(insertPointForWrite);
 			curInst = instruction;
 			if(curInst == NULL){
 				if (isBlockSplitted){
-					block = curBb;
+					block = Function::iterator(curBb);
 				}
 				break;
 			}

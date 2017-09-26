@@ -532,13 +532,6 @@ void checkRW(Instruction* op){ //if isReplace = 0, search Read or Write. if isRe
 	else if(!(isa<GetElementPtrInst>(op) || isa<BitCastInst>(op))){
 		auto* op2 = dyn_cast<Instruction>(op);
 		for (unsigned i = 0; i < op2->getNumOperands(); ++i) {
-=======
-	// how come this wasn't here??
-	else {
-		auto* op2 = dyn_cast<Instruction>(op);
-		for (unsigned i = 0; i < op2->getNumOperands(); ++i) {
-//			errs() << "op: " << *(op2->getOperand(i)) << "\n";
->>>>>>> 79dbc46ba63ebdaaecc01519fa169108b1bbbd27
 			isGlobalRead(op2->getOperand(i));
 			// Must init firstOp, curOp, curBb // NEED FIX!!
 			curOp = curOpSaved;
@@ -546,7 +539,6 @@ void checkRW(Instruction* op){ //if isReplace = 0, search Read or Write. if isRe
 			firstOp = firstOpSaved;
 		}
 	}
-<<<<<<< HEAD
 #endif
 }
 std::vector<BasicBlock*> visited;

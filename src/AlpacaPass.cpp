@@ -3,10 +3,6 @@
 #include "include/replace.h"
 #include <algorithm>
 
-#define ALLOCA 32
-#define STORE 34
-#define CALL 55
-
 /** @brief Mark as read */
 std::map<Instruction*, std::vector<std::string>> readPerInst;
 /** @brief Mark as write */
@@ -222,7 +218,7 @@ namespace {
 								for (auto &B : F){
 									for (auto &I : B){
 										if (auto *op = dyn_cast<Instruction>(&I)){
-											if (op->getOpcode() == CALL){
+											if (isa<CallInst>(op)){
 												for (Use &U : op->operands()) {
 													Value *v = U.get();
 													if (!strcmp(v->getName().str().c_str(), "transition_to")){

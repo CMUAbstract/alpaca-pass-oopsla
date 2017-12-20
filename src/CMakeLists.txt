@@ -1,9 +1,11 @@
 add_library(AlpacaPass MODULE
     # List your source files here.
     AlpacaPass.cpp
-    check.cpp
-    searchRW.cpp
-    replace.cpp
+		AnalyzeTasks.cpp
+		TransformTasks.cpp
+		global.cpp
+		BackwardSearcher.cpp
+		CustomAlias.cpp
 )
 
 # Use C++11 to compile our pass (i.e., supply -std=c++11).

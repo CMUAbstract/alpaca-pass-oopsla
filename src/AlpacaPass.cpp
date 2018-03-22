@@ -261,8 +261,9 @@ namespace {
 						bool done = 0;
 
 						// only analyze non-task functions (analyze -> transform)
-						while(F.getName().str().find("task_") == std::string::npos){
-							if (valPointer.size() != 0 && !done){ //when RW. switch all global_ read to local. 
+						while((F.getName().str().find("task_") == std::string::npos) &&
+              (F.getName().str().find("ISR") == std::string::npos)){
+              if (valPointer.size() != 0 && !done){ //when RW. switch all global_ read to local. 
 								isReplace = 1;
 								bool first = 0;
 								for (auto &B : F){

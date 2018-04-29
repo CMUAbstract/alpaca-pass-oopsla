@@ -220,7 +220,7 @@ void TransformTasks::runTransformation(func_vals_map WARinFunc) {
 						// We need to pass two instruction, 
 						// beginning of store (loading address for array)
 						// and the end of store (the actual store)
-						insertDynamicCommit((II)->first, BI, *VI, gv_bak);
+						insertDynamicCommit((II)->first, cast<Instruction>(BI), *VI, gv_bak);
 					}
 				}
 			}

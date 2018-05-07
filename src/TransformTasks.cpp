@@ -74,7 +74,7 @@ void TransformTasks::insertDynamicBackup(Instruction* I, Value* orig, Value* pri
 	GEPOperator* gep;
 	if (!(gep = dyn_cast<GEPOperator>(I))) {
 		// hacky temporary bug fix
-		gep = cast<GEPOperator>(I->getOperand(0));
+		gep = cast<GEPOperator>(I->getOperand(1));
 	}
 //	auto gep = cast<GEPOperator>(I);
 	for (User::op_iterator OI = gep->idx_begin(); OI != gep->idx_end(); ++OI){

@@ -13,7 +13,7 @@ class AlpacaModulePass : public ModulePass {
 		AlpacaModulePass() : ModulePass(ID) {}
 
 		virtual bool runOnModule(Module &M);
-		void set_write_to_gbuf();
+		void set_ulog();
 		void set_my_memset();
 		void set_clear_isDirty_function();
 		void set_commit_buffer(uint64_t commitSize);
@@ -32,7 +32,7 @@ class AlpacaModulePass : public ModulePass {
 		}
 	private:
 		Module* m;
-		Function* write_to_gbuf;
+		Function* log_backup;
 		Function* array_memset;
 };
 

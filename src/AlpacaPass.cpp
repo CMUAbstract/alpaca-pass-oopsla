@@ -49,7 +49,7 @@ void AlpacaModulePass::declare_priv_buffers(func_vals_map WARinFunc) {
 bool AlpacaModulePass::runOnModule(Module &M) {
 	m = &M;
 	// Declare functions and globals in library for access
-	set_write_to_gbuf();
+	set_ulog();
 	set_my_memset();
 	declare_globals();
 
@@ -64,7 +64,7 @@ bool AlpacaModulePass::runOnModule(Module &M) {
 	// declare _baks
 	declare_priv_buffers(WARinFunc);
 
-	TransformTasks* TT = new TransformTasks(this, m, write_to_gbuf);
+	TransformTasks* TT = new TransformTasks(this, m, log_backup);
 	// Transform tasks and non-tasks
 	TT->runTransformation(WARinFunc);
 
@@ -159,15 +159,15 @@ void AlpacaModulePass::set_clear_isDirty_function() {
 }
 
 /*
- * Declare pre-commit function
+ * Declare undo_log function (TODO: this can get inlined)
  */
-void AlpacaModulePass::set_write_to_gbuf() {
-	Constant* c = m->getOrInsertFunction("write_to_gbuf", 
+void AlpacaModulePass::set_ulog() {
+	Constant* c = m->getOrInsertFunction("log_backup", 
 			Type::getVoidTy(m->getContext()),
 			Type::getInt8PtrTy(m->getContext()),
 			Type::getInt8PtrTy(m->getContext()),
 			Type::getInt16Ty(m->getContext()), NULL);
-	write_to_gbuf = cast<Function>(c);
+	log_backup = cast<Function>(c);
 }
 
 /*

@@ -6,23 +6,23 @@
 
 class TransformTasks {
 	public:
-		TransformTasks(Pass* _pass, Module* _m, Function* _wtg) { 
+		TransformTasks(Pass* _pass, Module* _m, Function* _lb) { 
 			pass = _pass;
 			m = _m; 
-			write_to_gbuf = _wtg;
+			log_backup = _lb;
 		}
 		void runTransformation(func_vals_map WARinFunc);
-		void replaceToPriv(Function* F, val_vec WARs);
-		void privatize(Instruction* firstInst, Value* v);
-		inst_vec getArrReadPoint(Value* orig, Value* priv, Function* F);
-		inst_inst_vec getArrWritePoint(Value* orig, Value* priv, Function* F);
-		void insertDynamicPriv(Instruction* I, Value* orig, Value* priv);
-		void insertDynamicCommit(Instruction* storeBegin, Instruction* storeEnd, Value* orig, Value* priv);
-		Instruction* insertPreCommit(Value* oldVal, Value* newVal, Instruction* insertBefore);
+		//void replaceToPriv(Function* F, val_vec WARs);
+		void backup(Instruction* firstInst, Value* v);
+		//inst_vec getArrReadPoint(Value* orig, Value* priv, Function* F);
+		inst_inst_vec getArrWritePoint(Value* val, Function* F);
+		void insertDynamicBackup(Instruction* I, Value* orig, Value* priv);
+		//void insertDynamicCommit(Instruction* storeBegin, Instruction* storeEnd, Value* orig, Value* priv);
+		Instruction* insertLogBackup(Value* oldVal, Value* newVal, Instruction* insertBefore);
 	private:
 		Pass* pass;
 		Module* m;
-		Function* write_to_gbuf;
+		Function* log_backup;
 };
 
 #endif

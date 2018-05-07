@@ -1,6 +1,6 @@
 #include "include/TransformTasks.h"
 
-Instruction* TransformTasks::insertPreCommit(Value* oldVal, Value* newVal, Instruction* insertBefore) {
+Instruction* TransformTasks::insertLogBackup(Value* oldVal, Value* newVal, Instruction* insertBefore) {
 	BitCastInst* oldbc = new BitCastInst(oldVal, Type::getInt8PtrTy(m->getContext()), "", insertBefore);
 	BitCastInst* newbc = new BitCastInst(newVal, Type::getInt8PtrTy(m->getContext()), "", insertBefore);	
 
@@ -11,10 +11,10 @@ Instruction* TransformTasks::insertPreCommit(Value* oldVal, Value* newVal, Instr
 	Value* sizei = CastInst::Create(CastInst::getCastOpcode(size, false, Type::getInt16Ty(m->getContext()),false), size, Type::getInt16Ty(m->getContext()), "", insertBefore);
 
 	std::vector<Value*> args;
-	args.push_back(newbc);
 	args.push_back(oldbc);
+	args.push_back(newbc);
 	args.push_back(sizei);
-	CallInst* call = CallInst::Create(write_to_gbuf, ArrayRef<Value*>(args), "", insertBefore);
+	CallInst* call = CallInst::Create(log_backup, ArrayRef<Value*>(args), "", insertBefore);
 	return oldbc;
 }
 
@@ -23,6 +23,7 @@ Instruction* TransformTasks::insertPreCommit(Value* oldVal, Value* newVal, Instr
  * 1) Compare isDirty and numBoots
  * 2) if not same, commit
  */
+/*
 void TransformTasks::insertDynamicCommit(Instruction* storeBegin, Instruction* storeEnd, Value* orig, Value* priv) {
 	// get index of the array getting written
 	std::vector<Value*> arrayRef;
@@ -59,7 +60,7 @@ void TransformTasks::insertDynamicCommit(Instruction* storeBegin, Instruction* s
 	BasicBlock* ifTrue = SplitBlock(curBb, writeToGbuf);
 	BranchInst* branch = BranchInst::Create(ifTrue, ifEnd, cond);
 	ReplaceInstWithInst(curBb->getTerminator(), branch);
-}
+}*/
 
 
 /*
@@ -67,7 +68,7 @@ void TransformTasks::insertDynamicCommit(Instruction* storeBegin, Instruction* s
  * 1) Compare isDirty and numBoots
  * 2) if not same, privatize
  */
-void TransformTasks::insertDynamicPriv(Instruction* I, Value* orig, Value* priv) {
+void TransformTasks::insertDynamicBackup(Instruction* I, Value* orig, Value* priv) {
 	// get index of the array getting read
 	std::vector<Value*> arrayRef;
 	GEPOperator* gep;
@@ -96,6 +97,9 @@ void TransformTasks::insertDynamicPriv(Instruction* I, Value* orig, Value* priv)
 	GetElementPtrInst* privatizedValPtr = GetElementPtrInst::CreateInBounds(priv, arrayRef, "", I);
 	StoreInst* str = new StoreInst(nonPrivatizedVal, privatizedValPtr, I);
 
+	// insert backup log
+	insertLogBackup(orig, priv, I); 
+
 	// insert branch
 	BasicBlock* curBb = I->getParent();
 	BasicBlock* ifFalse = SplitBlock(curBb, I);
@@ -104,14 +108,14 @@ void TransformTasks::insertDynamicPriv(Instruction* I, Value* orig, Value* priv)
 	ReplaceInstWithInst(curBb->getTerminator(), branch);
 }
 
-inst_inst_vec TransformTasks::getArrWritePoint(Value* orig, Value* priv, Function* F) {
+inst_inst_vec TransformTasks::getArrWritePoint(Value* val, Function* F) {
 	AliasAnalysis* AAA = &pass->getAnalysis<AAResultsWrapperPass>(*(F)).getAAResults();
 	inst_inst_vec writePoint;
 	for (auto &B : *F) {
 		for (auto &I : B) {
 			if (isa<StoreInst>(&I)) {
 				CustomAlias* CA = new CustomAlias(AAA, &I);
-				inst_vec a = CA->alias(I.getOperand(1), cast<GlobalVariable>(priv), &I);
+				inst_vec a = CA->alias(I.getOperand(1), cast<GlobalVariable>(val), &I);
 				if (a.size() != 0) {
 					assert(a.size() == 1);
 					writePoint.push_back(std::make_pair(a.at(0), &I));
@@ -121,7 +125,7 @@ inst_inst_vec TransformTasks::getArrWritePoint(Value* orig, Value* priv, Functio
 				if (isMemcpy(ci)) {
 					// memcpy is a write
 					CustomAlias* CA = new CustomAlias(AAA, &I);
-					inst_vec a = CA->alias(I.getOperand(0), cast<GlobalVariable>(priv), &I);
+					inst_vec a = CA->alias(I.getOperand(0), cast<GlobalVariable>(val), &I);
 					if (a.size() != 0) {
 						assert(a.size() == 1);
 						writePoint.push_back(std::make_pair(a.at(0), &I));
@@ -132,7 +136,7 @@ inst_inst_vec TransformTasks::getArrWritePoint(Value* orig, Value* priv, Functio
 	}
 	return writePoint;
 }
-
+/*
 inst_vec TransformTasks::getArrReadPoint(Value* orig, Value* priv, Function* F) {
 	AliasAnalysis* AAA = &pass->getAnalysis<AAResultsWrapperPass>(*(F)).getAAResults();
 	inst_vec readPoint;
@@ -154,9 +158,9 @@ inst_vec TransformTasks::getArrReadPoint(Value* orig, Value* priv, Function* F) 
 		}
 	}
 	return readPoint;
-}
+}*/
 
-void TransformTasks::privatize(Instruction* firstInst, Value* v) {
+void TransformTasks::backup(Instruction* firstInst, Value* v) {
 	Value* orig = new LoadInst(v, "", false, firstInst);
 	Value* priv = m->getNamedValue(v->getName().str()+"_bak");
 	StoreInst* st = new StoreInst(orig, priv, firstInst);
@@ -170,27 +174,20 @@ void TransformTasks::runTransformation(func_vals_map WARinFunc) {
 			val_vec WARs = WARinFunc[&F];
 
 			// change every usage of WAR to priv buffer
-			replaceToPriv(&F, WARs);
-
+			// replaceToPriv(&F, WARs);
 			Instruction* firstInst = &F.front().front();
 			for (val_vec::iterator VI = WARs.begin(); VI != WARs.end(); ++VI) {
 				if (!isArray(*VI)) {
 					// non-array privatization and commit only in tasks
 					if (isTask(&F)) {
 						// 1) For non-array
-						// insert privatization
-						privatize(firstInst, *VI);
+						// insert backup
+						backup(firstInst, *VI);
 
-						// insert pre-commit
-						for (auto &B : F) {
-							for (auto &I : B) {
-								if (isTransitionTo(&I)) {
-									insertPreCommit(*VI, 
-											m->getNamedValue((*VI)->getName().str()+"_bak"),
-											&I);
-								}
-							}
-						}
+						// log the backup
+						insertLogBackup(*VI, 
+								m->getNamedValue((*VI)->getName().str()+"_bak"),
+								firstInst);
 					}
 				}
 				else {
@@ -203,24 +200,25 @@ void TransformTasks::runTransformation(func_vals_map WARinFunc) {
 					//					checkAfterArrWrite(*VI);
 					GlobalValue* gv_bak = m->getNamedValue((*VI)->getName().str()+"_bak");
 
-					inst_vec readPoint = getArrReadPoint(*VI, gv_bak, &F);
-					inst_inst_vec writePoint = getArrWritePoint(*VI, gv_bak, &F);
+					//inst_vec readPoint = getArrReadPoint(*VI, gv_bak, &F);
+					inst_inst_vec writePoint = getArrWritePoint(*VI, &F);
 
-					for (inst_vec::iterator II = readPoint.begin();
-							II != readPoint.end(); ++II) {
-						insertDynamicPriv(*II, *VI, gv_bak);
-					}
+					//for (inst_vec::iterator II = readPoint.begin();
+					//		II != readPoint.end(); ++II) {
+					//	insertDynamicPriv(*II, *VI, gv_bak);
+					//}
 
 					for (inst_inst_vec::iterator II = writePoint.begin();
 							II != writePoint.end(); ++II) {
 						// pass the next instruction because 
 						// every insertion works as "insertBefore"
-						BasicBlock::iterator BI = BasicBlock::iterator((II)->second);
-						++BI;
+						//BasicBlock::iterator BI = BasicBlock::iterator((II)->second);
+						//++BI;
 						// We need to pass two instruction, 
 						// beginning of store (loading address for array)
 						// and the end of store (the actual store)
-						insertDynamicCommit((II)->first, cast<Instruction>(BI), *VI, gv_bak);
+						//insertDynamicCommit((II)->first, cast<Instruction>(BI), *VI, gv_bak);
+						insertDynamicBackup(II->second, *VI, gv_bak);
 					}
 				}
 			}
@@ -231,6 +229,7 @@ void TransformTasks::runTransformation(func_vals_map WARinFunc) {
 /*
  * Replace all the usage of WAR vals to its privatized copy
  */
+/*
 void TransformTasks::replaceToPriv(Function* F, val_vec WARs) {
 	for (auto &B : *F) {
 		for (auto &I : B) {
@@ -279,4 +278,4 @@ void TransformTasks::replaceToPriv(Function* F, val_vec WARs) {
 			}
 		}
 	}
-}
+}*/

@@ -99,6 +99,8 @@ void TransformTasks::insertDynamicBackup(Instruction* I, Value* orig, Value* pri
 
 	// insert backup log
 	insertLogBackup(orig, priv, I); 
+	// set isDirty
+	StoreInst* storeNumDirtyGv = new StoreInst(numBoots, isDirtyValPtr, I); 
 
 	// insert branch
 	BasicBlock* curBb = I->getParent();

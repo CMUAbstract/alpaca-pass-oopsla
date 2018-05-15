@@ -18,50 +18,27 @@ Instruction* TransformTasks::insertLogBackup(Value* oldVal, Value* newVal, Instr
 	return oldbc;
 }
 
-/*
- * Inserts dynamic commit code after array write
- * 1) Compare isDirty and numBoots
- * 2) if not same, commit
- */
-/*
-void TransformTasks::insertDynamicCommit(Instruction* storeBegin, Instruction* storeEnd, Value* orig, Value* priv) {
-	// get index of the array getting written
-	std::vector<Value*> arrayRef;
-	//auto gep = cast<GEPOperator>(storeBegin);
-	GEPOperator* gep;
-	if (!(gep = dyn_cast<GEPOperator>(storeBegin))) {
-		// hacky temporary bug fix
-		gep = cast<GEPOperator>(storeBegin->getOperand(1));
-	}
-	for (User::op_iterator OI = gep->idx_begin(); OI != gep->idx_end(); ++OI){
-		arrayRef.push_back(OI->get());
-	}	
+void TransformTasks::setGPIO(Instruction* I) {
+#if OVERHEAD == 1
+	LoadInst* ldr = new LoadInst(Type::getInt8Ty(m->getContext()), m->getNamedGlobal("PBOUT_L"), "gpioreg", true, 1, I);
+	ZExtInst* zxt = new ZExtInst(ldr, Type::getInt16Ty(m->getContext()), "zext", I);
+	ConstantInt* i32 = ConstantInt::get(Type::getInt16Ty(m->getContext()), 32, false);
+	BinaryOperator* bi = BinaryOperator::Create(Instruction::Or, zxt, i32, "or", I);
+	TruncInst* ti = new TruncInst(bi, Type::getInt8Ty(m->getContext()), "trunc", I);
+	StoreInst* str = new StoreInst(ti, m->getNamedGlobal("PBOUT_L"), true, 1, I);
+#endif
+}
 
-	// get corresponding isDirty
-	GetElementPtrInst* isDirtyValPtr = GetElementPtrInst::CreateInBounds(m->getNamedGlobal(orig->getName().str()+"_isDirty"), arrayRef, "", storeEnd);
-	LoadInst* isDirtyVal = new LoadInst(isDirtyValPtr, "", storeEnd);
-
-	// get numBoots
-	LoadInst* numBoots = new LoadInst(m->getNamedGlobal("_numBoots"), "", true, storeEnd);	
-
-	// isDirty == numBoots ?
-	ICmpInst* cond = new ICmpInst(storeEnd, CmpInst::Predicate::ICMP_NE, isDirtyVal, numBoots);	
-
-	// when isDirty is 0 : write to gbuf, set is dirty
-	GetElementPtrInst* nonPrivatizedValPtr = GetElementPtrInst::CreateInBounds(orig, arrayRef, "", storeEnd);
-	Instruction* writeToGbuf = insertPreCommit(nonPrivatizedValPtr, gep, storeEnd); 
-	StoreInst* storeNumDirtyGv = new StoreInst(numBoots, isDirtyValPtr, storeEnd); 
-
-	//when isDirty is not 0 : do nothing
-
-	// add branch
-	BasicBlock* curBb = storeEnd->getParent();
-	BasicBlock* ifEnd = SplitBlock(curBb, storeEnd);
-	BasicBlock* ifTrue = SplitBlock(curBb, writeToGbuf);
-	BranchInst* branch = BranchInst::Create(ifTrue, ifEnd, cond);
-	ReplaceInstWithInst(curBb->getTerminator(), branch);
-}*/
-
+void TransformTasks::unsetGPIO(Instruction* I) {
+#if OVERHEAD == 1
+	LoadInst* ldr = new LoadInst(Type::getInt8Ty(m->getContext()), m->getNamedGlobal("PBOUT_L"), "gpioreg", true, 1, I);
+	ZExtInst* zxt = new ZExtInst(ldr, Type::getInt16Ty(m->getContext()), "zext", I);
+	ConstantInt* m33 = ConstantInt::get(Type::getInt16Ty(m->getContext()), -33, false);
+	BinaryOperator* bi = BinaryOperator::Create(Instruction::And, zxt, m33, "and", I);
+	TruncInst* ti = new TruncInst(bi, Type::getInt8Ty(m->getContext()), "trunc", I);
+	StoreInst* str = new StoreInst(ti, m->getNamedGlobal("PBOUT_L"), true, 1, I);
+#endif
+}
 
 /*
  * Inserts dynamic privatization code before array read
@@ -80,6 +57,9 @@ void TransformTasks::insertDynamicBackup(Instruction* I, Value* orig, Value* pri
 	for (User::op_iterator OI = gep->idx_begin(); OI != gep->idx_end(); ++OI){
 		arrayRef.push_back(OI->get());
 	}	
+	
+	// for overhead measurement
+	setGPIO(I);
 
 	// load correspoinding isDirty Array
 	GetElementPtrInst* isDirtyValPtr = GetElementPtrInst::CreateInBounds(m->getNamedGlobal(orig->getName().str()+"_isDirty"), arrayRef, "", I);
@@ -98,7 +78,7 @@ void TransformTasks::insertDynamicBackup(Instruction* I, Value* orig, Value* pri
 	StoreInst* str = new StoreInst(nonPrivatizedVal, privatizedValPtr, I);
 
 	// insert backup log
-	insertLogBackup(orig, priv, I); 
+	insertLogBackup(nonPrivatizedValPtr, privatizedValPtr, I); 
 	// set isDirty
 	StoreInst* storeNumDirtyGv = new StoreInst(numBoots, isDirtyValPtr, I); 
 
@@ -108,6 +88,7 @@ void TransformTasks::insertDynamicBackup(Instruction* I, Value* orig, Value* pri
 	BasicBlock* ifTrue = SplitBlock(curBb, nonPrivatizedValPtr);
 	BranchInst* branch = BranchInst::Create(ifTrue, ifFalse, cond);
 	ReplaceInstWithInst(curBb->getTerminator(), branch);
+	unsetGPIO(&ifFalse->front());
 }
 
 inst_inst_vec TransformTasks::getArrWritePoint(Value* val, Function* F) {
@@ -166,7 +147,6 @@ void TransformTasks::backup(Instruction* firstInst, Value* v) {
 	Value* orig = new LoadInst(v, "", false, firstInst);
 	Value* priv = m->getNamedValue(v->getName().str()+"_bak");
 	StoreInst* st = new StoreInst(orig, priv, firstInst);
-
 }
 
 void TransformTasks::runTransformation(func_vals_map WARinFunc) {
@@ -178,12 +158,21 @@ void TransformTasks::runTransformation(func_vals_map WARinFunc) {
 			// change every usage of WAR to priv buffer
 			// replaceToPriv(&F, WARs);
 			Instruction* firstInst = &F.front().front();
+
+			// For overhead measurement only
+			bool scalarUndoLogged = false;
+
 			for (val_vec::iterator VI = WARs.begin(); VI != WARs.end(); ++VI) {
 				if (!isArray(*VI)) {
 					// non-array privatization and commit only in tasks
 					if (isTask(&F)) {
 						// 1) For non-array
 						// insert backup
+						if (!scalarUndoLogged) {
+							// When it is the first time to undo log
+							setGPIO(firstInst);
+							scalarUndoLogged = 1;
+						}
 						backup(firstInst, *VI);
 
 						// log the backup
@@ -223,6 +212,10 @@ void TransformTasks::runTransformation(func_vals_map WARinFunc) {
 						insertDynamicBackup(II->second, *VI, gv_bak);
 					}
 				}
+			}
+			if (scalarUndoLogged) {
+				// only for overhead measurement
+				unsetGPIO(firstInst);
 			}
 		}
 	}

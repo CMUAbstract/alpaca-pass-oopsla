@@ -11,6 +11,8 @@ class TransformTasks {
 			m = _m; 
 			log_backup = _lb;
 		}
+		void setGPIO(Instruction* I);
+		void unsetGPIO(Instruction* I);
 		void runTransformation(func_vals_map WARinFunc);
 		//void replaceToPriv(Function* F, val_vec WARs);
 		void backup(Instruction* firstInst, Value* v);

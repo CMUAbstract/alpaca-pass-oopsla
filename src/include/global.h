@@ -39,4 +39,6 @@ bool isTransitionTo(Function* F);
 bool isTransitionTo(Instruction* I);
 uint64_t getSize(Value* val);
 
+#define OVERHEAD 0
+
 #endif

@@ -120,13 +120,13 @@ void AlpacaModulePass::set_commit_buffer(uint64_t commitSize) {
 void AlpacaModulePass::set_clear_isDirty_function() {
 	// insert function named clear_isDirty
 	Constant* c = m->getOrInsertFunction("clear_isDirty",
-			Type::getVoidTy(getGlobalContext()),
+			Type::getVoidTy(m->getContext()),
 			NULL);
 	Function* clear_isDirty = cast<Function>(c);
 	clear_isDirty->setCallingConv(CallingConv::C);
 
 	// create basic block inside the function
-	BasicBlock* block = BasicBlock::Create(getGlobalContext(), 
+	BasicBlock* block = BasicBlock::Create(m->getContext(),
 			"entry", clear_isDirty);
 
 	// insert memset for every isDirty
@@ -134,19 +134,19 @@ void AlpacaModulePass::set_clear_isDirty_function() {
 		if ((*GI)->getName().str().find("_isDirty") != std::string::npos) {
 			// This part is a hacky way of calculating sizeof()
 			BitCastInst* arraybc = new BitCastInst(*GI, 
-					Type::getInt8PtrTy(getGlobalContext()), "", block);	
+					Type::getInt8PtrTy(m->getContext()), "", block);
 			val_vec arrayRef;
 			arrayRef.push_back(ConstantInt::get(
-						Type::getInt16Ty(getGlobalContext()), 1, false));
+						Type::getInt16Ty(m->getContext()), 1, false));
 			Value* size = GetElementPtrInst::CreateInBounds(
 					Constant::getNullValue((*GI)->getType()), 
 					ArrayRef<Value*>(arrayRef), "", block);
 			Value* sizei = CastInst::Create(CastInst::getCastOpcode(size, false, 
-						Type::getInt16Ty(getGlobalContext()),false), size, 
-					Type::getInt16Ty(getGlobalContext()), "", block);
+						Type::getInt16Ty(m->getContext()),false), size,
+					Type::getInt16Ty(m->getContext()), "", block);
 
 			// insert custom fast memset (because mspgcc memset is slow)
-			Value* zero = ConstantInt::get(Type::getInt16Ty(getGlobalContext()), 0);
+			Value* zero = ConstantInt::get(Type::getInt16Ty(m->getContext()), 0);
 			val_vec args;
 			args.push_back(arraybc);
 			args.push_back(zero);
@@ -155,7 +155,7 @@ void AlpacaModulePass::set_clear_isDirty_function() {
 		}
 	}
 	// insert return inst
-	ReturnInst::Create(getGlobalContext(), block);
+	ReturnInst::Create(m->getContext(), block);
 }
 
 /*

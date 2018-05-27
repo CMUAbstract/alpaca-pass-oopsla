@@ -120,8 +120,7 @@ void AlpacaModulePass::set_commit_buffer(uint64_t commitSize) {
 void AlpacaModulePass::set_clear_isDirty_function() {
 	// insert function named clear_isDirty
 	Constant* c = m->getOrInsertFunction("clear_isDirty",
-			Type::getVoidTy(m->getContext()),
-			NULL);
+			Type::getVoidTy(m->getContext()));
 	Function* clear_isDirty = cast<Function>(c);
 	clear_isDirty->setCallingConv(CallingConv::C);
 
@@ -166,7 +165,7 @@ void AlpacaModulePass::set_write_to_gbuf() {
 			Type::getVoidTy(m->getContext()),
 			Type::getInt8PtrTy(m->getContext()),
 			Type::getInt8PtrTy(m->getContext()),
-			Type::getInt16Ty(m->getContext()), NULL);
+			Type::getInt16Ty(m->getContext()));
 	write_to_gbuf = cast<Function>(c);
 }
 
@@ -178,8 +177,7 @@ void AlpacaModulePass::set_my_memset() {
 			Type::getVoidTy(m->getContext()),
 			Type::getInt8PtrTy(m->getContext()),
 			Type::getInt16Ty(m->getContext()),
-			Type::getInt16Ty(m->getContext()),
-			NULL);
+			Type::getInt16Ty(m->getContext()));
 	array_memset = cast<Function>(c); 
 }
 

@@ -61,4 +61,6 @@ val_inst_vec* CustomAlias::getPossiblePointee(Value* pointer, Instruction* I) {
 		BS->calculatePossiblePointee(pointer, I);
 		return BS->getPossiblePointees();
 	}
+
+	return NULL;
 }

@@ -28,7 +28,7 @@ class AlpacaModulePass : public ModulePass {
 			return m;
 		}
 		Module* setModule(Module* _m) {
-			m = _m;
+			return m = _m;
 		}
 	private:
 		Module* m;

@@ -4,11 +4,11 @@ void BackwardSearcher::calculatePossiblePointee(Value* pointer, Instruction* I) 
 	// iterate within block
 	BasicBlock::iterator BI = BasicBlock::iterator(I);
 	BasicBlock* curBlock = I->getParent();
-	while(dyn_cast<Instruction>(BI) != &curBlock->front()) {
+	while(&(*BI) != &curBlock->front()) {
 		--BI;
-		if (StoreInst* st = dyn_cast<StoreInst>(BI)) {
+		if (StoreInst* st = dyn_cast<StoreInst>(&(*BI))) {
 			if (st->getOperand(1) == pointer) {
-				possiblePointees.push_back(std::make_pair(st->getOperand(0), BI));
+				possiblePointees.push_back(std::make_pair(st->getOperand(0), &(*BI)));
 			}
 		}
 	}
@@ -28,9 +28,9 @@ bool BackwardSearcher::isPreceding(Instruction* first, Instruction* second) {
 	// iterate within block
 	BasicBlock::iterator BI = BasicBlock::iterator(second);
 	BasicBlock* curBlock = second->getParent();
-	while(dyn_cast<Instruction>(BI) != &curBlock->front()) {
+	while(&(*BI) != &curBlock->front()) {
 		--BI;
-		if (first == BI) {
+		if (first == &(*BI)) {
 			return true;
 		}
 	}

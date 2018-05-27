@@ -215,12 +215,11 @@ void TransformTasks::runTransformation(func_vals_map WARinFunc) {
 							II != writePoint.end(); ++II) {
 						// pass the next instruction because 
 						// every insertion works as "insertBefore"
-						BasicBlock::iterator BI = BasicBlock::iterator((II)->second);
-						++BI;
+						Instruction *nextInstr = II->second->getNextNode();
 						// We need to pass two instruction, 
 						// beginning of store (loading address for array)
 						// and the end of store (the actual store)
-						insertDynamicCommit((II)->first, BI, *VI, gv_bak);
+						insertDynamicCommit((II)->first, nextInstr, *VI, gv_bak);
 					}
 				}
 			}

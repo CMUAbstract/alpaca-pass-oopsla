@@ -8,7 +8,7 @@ void BackwardSearcher::calculatePossiblePointee(Value* pointer, Instruction* I) 
 		--BI;
 		if (StoreInst* st = dyn_cast<StoreInst>(BI)) {
 			if (st->getOperand(1) == pointer) {
-				possiblePointees.push_back(std::make_pair(st->getOperand(0), cast<Instruction>(BI)));
+				possiblePointees.push_back(std::make_pair(st->getOperand(0), BI));
 			}
 		}
 	}

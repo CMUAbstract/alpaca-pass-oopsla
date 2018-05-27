@@ -5,7 +5,7 @@ gv_vec gv_list;
 void get_gv_list(Module* m) {
 	for (Module::global_iterator GI = m->global_begin(); GI != m->global_end(); ++GI) {
 		if ((GI)->getName().str().find("_global_") != std::string::npos) {
-			gv_list.push_back(cast<GlobalVariable>(GI));
+			gv_list.push_back(GI);
 		}
 	}
 }
